@@ -11,7 +11,7 @@ import uuid
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 
 from app.core.config import settings
 from app.core.database import async_engine, Base
@@ -95,6 +95,17 @@ async def global_exception_handler(request: Request, exc: Exception):
             "request_id": request_id
         }
     )
+
+
+# Root landing endpoint
+@app.get("/", tags=["Root"])
+async def root_landing():
+    return {
+        "message": "Welcome to Instagram Reseller AI Assistant API",
+        "status": "online",
+        "documentation": "/api/v1/docs",
+        "health": "/health"
+    }
 
 
 # Health check endpoints
