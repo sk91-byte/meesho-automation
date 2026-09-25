@@ -1,3 +1,11 @@
+import sys
+from pathlib import Path
+
+# Ensure 'backend' directory is in sys.path regardless of execution working directory (Render/Local)
+backend_dir = Path(__file__).resolve().parent.parent
+if str(backend_dir) not in sys.path:
+    sys.path.insert(0, str(backend_dir))
+
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -24,7 +32,6 @@ setup_logging()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting up Instagram Reseller AI Platform Backend...")
-    # Auto-create tables in development mode if using SQLite
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables initialized successfully.")
