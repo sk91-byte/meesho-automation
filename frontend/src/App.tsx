@@ -19,7 +19,8 @@ import {
   Check,
   X,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Trash2
 } from 'lucide-react';
 import { Product, Order, Conversation } from './types';
 
@@ -48,8 +49,9 @@ export default function App() {
     stock_quantity: 50
   });
 
-  // REAL LIVE STATE (NO MOCK / DEMO DATA)
+  // REAL LIVE STATE
   const [loading, setLoading] = useState(false);
+  const [submittingProduct, setSubmittingProduct] = useState(false);
   const [nightlyReport, setNightlyReport] = useState<any>({
     total_orders: 0,
     total_revenue: 0,
@@ -64,6 +66,37 @@ export default function App() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [manualReplyText, setManualReplyText] = useState<string>('');
+
+  // Auto-Authenticate Store Owner Helper
+  const ensureOwnerAuth = async (): Promise<string | null> => {
+    let token = localStorage.getItem('token');
+    if (token) return token;
+
+    try {
+      const formData = new URLSearchParams();
+      formData.append('username', 'owner@meesho.store');
+      formData.append('password', 'Owner123!');
+
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: formData.toString()
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.access_token) {
+          localStorage.setItem('token', data.access_token);
+          return data.access_token;
+        }
+      }
+    } catch (e) {
+      console.warn('Auto auth fetch error:', e);
+    }
+    return null;
+  };
 
   // Keyboard listener for Ctrl+K
   useEffect(() => {
@@ -85,6 +118,8 @@ export default function App() {
   const fetchLiveData = async () => {
     setLoading(true);
     try {
+      await ensureOwnerAuth();
+
       // 1. Products
       const prodRes = await fetch(`${API_BASE_URL}/products/`);
       if (prodRes.ok) {
@@ -116,7 +151,7 @@ export default function App() {
         }
       }
     } catch (err) {
-      console.log('Live backend query:', err);
+      console.log('Live backend query error:', err);
     } finally {
       setLoading(false);
     }
@@ -135,27 +170,30 @@ export default function App() {
   // Submit New Product to Live Database
   const handleAddProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmittingProduct(true);
     try {
+      const token = await ensureOwnerAuth();
+
       const colorVariants = newProduct.colors.split(',').map(c => ({
         type: 'color',
         value: c.trim(),
         available: true
-      }));
+      })).filter(c => c.value);
 
       const sizeVariants = newProduct.sizes.split(',').map(s => ({
         type: 'size',
         value: s.trim(),
         available: true
-      }));
+      })).filter(s => s.value);
 
       const payload = {
-        sku: newProduct.sku || `SKU-${Date.now().toString().slice(-6)}`,
-        product_name: newProduct.product_name,
-        description: newProduct.description,
+        sku: newProduct.sku.trim() || `SKU-${Date.now().toString().slice(-6)}`,
+        product_name: newProduct.product_name.trim(),
+        description: newProduct.description.trim() || newProduct.product_name.trim(),
         actual_price: Number(newProduct.actual_price),
         selling_price: Number(newProduct.selling_price),
         currency: 'INR',
-        meesho_url: newProduct.meesho_url || 'https://meesho.com',
+        meesho_url: newProduct.meesho_url.trim() || 'https://meesho.com',
         category: newProduct.category,
         stock_quantity: Number(newProduct.stock_quantity),
         images: ['https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=500'],
@@ -165,7 +203,6 @@ export default function App() {
         ]
       };
 
-      const token = localStorage.getItem('token');
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
@@ -190,13 +227,35 @@ export default function App() {
           category: 'Ethnic Wear',
           stock_quantity: 50
         });
-        fetchLiveData();
+        await fetchLiveData();
       } else {
         const errData = await res.json();
         alert(`Error: ${errData.detail || 'Failed to save product'}`);
       }
     } catch (err) {
       alert(`Connection error: ${err}`);
+    } finally {
+      setSubmittingProduct(false);
+    }
+  };
+
+  const handleDeleteProduct = async (productId: string) => {
+    if (!confirm('Are you sure you want to delete this product?')) return;
+    try {
+      const token = await ensureOwnerAuth();
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`${API_BASE_URL}/products/${productId}`, {
+        method: 'DELETE',
+        headers
+      });
+      if (res.ok || res.status === 204) {
+        alert('Product archived.');
+        fetchLiveData();
+      }
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -419,9 +478,11 @@ export default function App() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-pink-600 hover:bg-pink-500 text-white text-sm font-semibold rounded-lg shadow-lg"
+                  disabled={submittingProduct}
+                  className="px-5 py-2 bg-pink-600 hover:bg-pink-500 text-white text-sm font-semibold rounded-lg shadow-lg flex items-center space-x-2"
                 >
-                  Save Product to Database
+                  {submittingProduct && <RefreshCw className="w-4 h-4 animate-spin" />}
+                  <span>{submittingProduct ? 'Saving...' : 'Save Product to Database'}</span>
                 </button>
               </div>
             </form>
@@ -464,7 +525,7 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 p-6 max-w-7xl w-full mx-auto">
-        {/* FIRST-TIME USER SETUP GUIDE BANNER (Appears when 0 products exist) */}
+        {/* FIRST-TIME USER SETUP GUIDE BANNER */}
         {isFirstTimeUser && (
           <div className="bg-gradient-to-r from-pink-950/60 via-gray-900 to-indigo-950/60 border border-pink-500/30 rounded-2xl p-6 mb-8 shadow-2xl relative overflow-hidden">
             <div className="flex items-start space-x-4">
@@ -575,7 +636,6 @@ export default function App() {
         {/* TAB 2: LIVE CHATS & HANDOFF */}
         {activeTab === 'chats' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[720px]">
-            {/* Conversation List */}
             <div className="bg-gray-900 border border-gray-800 rounded-xl flex flex-col overflow-hidden">
               <div className="p-4 border-b border-gray-800 flex justify-between items-center">
                 <h3 className="font-semibold text-white">Conversations</h3>
@@ -626,7 +686,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Selected Chat Box */}
             <div className="lg:col-span-2 bg-gray-900 border border-gray-800 rounded-xl flex flex-col overflow-hidden">
               {selectedConv ? (
                 <>
@@ -856,15 +915,24 @@ export default function App() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {products.map(p => (
-                  <div key={p.product_id} className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-4">
+                  <div key={p.product_id} className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-4 relative">
                     <div className="flex justify-between items-start">
                       <div>
                         <span className="text-xs font-mono text-pink-400">{p.sku}</span>
                         <h3 className="text-lg font-bold text-white">{p.product_name}</h3>
                       </div>
-                      <span className="px-2 py-0.5 rounded text-xs bg-emerald-950 text-emerald-400 border border-emerald-800 font-medium">
-                        Active
-                      </span>
+                      <div className="flex items-center space-x-2">
+                        <span className="px-2 py-0.5 rounded text-xs bg-emerald-950 text-emerald-400 border border-emerald-800 font-medium">
+                          Active
+                        </span>
+                        <button
+                          onClick={() => handleDeleteProduct(p.product_id)}
+                          className="text-gray-500 hover:text-red-400 p-1 rounded"
+                          title="Archive Product"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
 
                     <p className="text-sm text-gray-400">{p.description}</p>
@@ -883,9 +951,9 @@ export default function App() {
                     <div>
                       <span className="text-xs font-semibold text-gray-400 block mb-2">Variants Availability:</span>
                       <div className="flex flex-wrap gap-2">
-                        {p.variants.map(v => (
+                        {p.variants.map((v, i) => (
                           <span
-                            key={v.variant_id || v.value}
+                            key={v.variant_id || `${v.value}_${i}`}
                             className={`px-2.5 py-1 rounded text-xs font-medium border ${
                               v.available
                                 ? 'bg-gray-800 text-gray-200 border-gray-700'
