@@ -35,6 +35,33 @@ async def lifespan(app: FastAPI):
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables initialized successfully.")
+    
+    # Auto-seed default owner account if not exists
+    from app.core.database import AsyncSessionLocal
+    from app.core.security import get_password_hash
+    from app.models.user import User, RoleEnum
+    from sqlalchemy.future import select
+    
+    try:
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(select(User).where(User.email == "owner@meesho.store"))
+            existing_owner = result.scalars().first()
+            if not existing_owner:
+                owner = User(
+                    email="owner@meesho.store",
+                    hashed_password=get_password_hash("Owner123!"),
+                    full_name="Business Owner",
+                    role=RoleEnum.OWNER,
+                    is_active=True
+                )
+                session.add(owner)
+                await session.commit()
+                logger.info("Successfully auto-seeded default owner account: owner@meesho.store")
+            else:
+                logger.info("Default owner account already exists.")
+    except Exception as e:
+        logger.error(f"Error auto-seeding owner user: {e}")
+        
     yield
     logger.info("Shutting down Instagram Reseller AI Platform Backend...")
 
