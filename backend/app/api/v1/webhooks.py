@@ -23,17 +23,20 @@ router = APIRouter(prefix="/webhooks", tags=["Meta Instagram Webhooks"])
 
 
 @router.get("/instagram")
-async def verify_instagram_webhook(
-    hub_mode: str = Query(..., alias="hub.mode"),
-    hub_challenge: str = Query(..., alias="hub.challenge"),
-    hub_verify_token: str = Query(..., alias="hub.verify_token")
-):
+async def verify_instagram_webhook(request: Request):
     """Meta Webhook Challenge Verification."""
-    if hub_mode == "subscribe" and hub_verify_token == settings.INSTAGRAM_VERIFY_TOKEN:
+    mode = request.query_params.get("hub.mode")
+    token = request.query_params.get("hub.verify_token")
+    challenge = request.query_params.get("hub.challenge")
+    
+    logger.info(f"Webhook verification request: mode={mode}, token={token}, challenge={challenge}")
+    
+    if mode == "subscribe" and token == settings.INSTAGRAM_VERIFY_TOKEN:
         logger.info("Meta Webhook verified successfully!")
-        return Response(content=hub_challenge, media_type="text/plain")
-    logger.warning("Meta Webhook verification token mismatch")
-    raise HTTPException(status_code=403, detail="Verification token mismatch")
+        return Response(content=str(challenge or ""), media_type="text/plain", status_code=200)
+    
+    logger.warning(f"Meta Webhook verification failed. Expected token '{settings.INSTAGRAM_VERIFY_TOKEN}', got '{token}'")
+    return Response(content="Verification failed", status_code=403)
 
 
 @router.post("/instagram")
