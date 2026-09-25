@@ -18,7 +18,8 @@ import {
   Plus,
   Check,
   X,
-  Trash2
+  Sparkles,
+  ArrowRight
 } from 'lucide-react';
 import { Product, Order, Conversation } from './types';
 
@@ -27,7 +28,7 @@ const API_BASE_URL = 'https://meesho-automation-nzxa.onrender.com/api/v1';
 export default function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'orders' | 'chats' | 'requests'>('dashboard');
   
-  // V2.0 Global Command Bar Search State
+  // Search & Copy states
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -47,7 +48,7 @@ export default function App() {
     stock_quantity: 50
   });
 
-  // Real Backend Data States
+  // REAL LIVE STATE (NO MOCK / DEMO DATA)
   const [loading, setLoading] = useState(false);
   const [nightlyReport, setNightlyReport] = useState<any>({
     total_orders: 0,
@@ -64,7 +65,7 @@ export default function App() {
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [manualReplyText, setManualReplyText] = useState<string>('');
 
-  // Keyboard shortcut listener for Ctrl+K
+  // Keyboard listener for Ctrl+K
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
@@ -80,32 +81,32 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Fetch Live Data from Backend
+  // Fetch Live Data from Backend API
   const fetchLiveData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Products
+      // 1. Products
       const prodRes = await fetch(`${API_BASE_URL}/products/`);
       if (prodRes.ok) {
         const prodData = await prodRes.json();
         setProducts(prodData);
       }
 
-      // 2. Fetch Orders
+      // 2. Orders
       const orderRes = await fetch(`${API_BASE_URL}/orders/`);
       if (orderRes.ok) {
         const orderData = await orderRes.json();
         setOrders(orderData);
       }
 
-      // 3. Fetch Nightly Analytics
+      // 3. Analytics
       const analyticsRes = await fetch(`${API_BASE_URL}/analytics/nightly-summary`);
       if (analyticsRes.ok) {
         const analyticsData = await analyticsRes.json();
         setNightlyReport(analyticsData);
       }
 
-      // 4. Fetch Conversations
+      // 4. Conversations
       const convRes = await fetch(`${API_BASE_URL}/conversations/`);
       if (convRes.ok) {
         const convData = await convRes.json();
@@ -115,7 +116,7 @@ export default function App() {
         }
       }
     } catch (err) {
-      console.warn('Backend loading status:', err);
+      console.log('Live backend query:', err);
     } finally {
       setLoading(false);
     }
@@ -164,14 +165,9 @@ export default function App() {
         ]
       };
 
-      // Get bearer token or post directly
       const token = localStorage.getItem('token');
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
       const res = await fetch(`${API_BASE_URL}/products/`, {
         method: 'POST',
@@ -180,15 +176,27 @@ export default function App() {
       });
 
       if (res.ok) {
-        alert('🎉 Product added successfully!');
+        alert('🎉 Product added successfully to live database!');
         setShowAddProductModal(false);
+        setNewProduct({
+          sku: '',
+          product_name: '',
+          description: '',
+          actual_price: 299,
+          selling_price: 499,
+          meesho_url: '',
+          colors: 'Red, Blue, Black',
+          sizes: 'M, L, XL',
+          category: 'Ethnic Wear',
+          stock_quantity: 50
+        });
         fetchLiveData();
       } else {
         const errData = await res.json();
-        alert(`Error adding product: ${errData.detail || 'Check login'}`);
+        alert(`Error: ${errData.detail || 'Failed to save product'}`);
       }
     } catch (err) {
-      alert(`Failed to connect to backend: ${err}`);
+      alert(`Connection error: ${err}`);
     }
   };
 
@@ -225,6 +233,8 @@ export default function App() {
     setManualReplyText('');
   };
 
+  const isFirstTimeUser = products.length === 0 && orders.length === 0 && conversations.length === 0;
+
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col font-sans">
       {/* Top Command Center Header */}
@@ -235,11 +245,11 @@ export default function App() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-white tracking-wide">Meesho Reseller Command Center</h1>
-            <p className="text-xs text-gray-400">Secure Instagram AI Sales Assistant V2.0</p>
+            <p className="text-xs text-gray-400">Production Live Instagram Sales Engine</p>
           </div>
         </div>
 
-        {/* Global Search Bar Activation Trigger */}
+        {/* Global Search Bar */}
         <div className="flex-1 max-w-md mx-8">
           <button
             onClick={() => setSearchOpen(true)}
@@ -247,7 +257,7 @@ export default function App() {
           >
             <div className="flex items-center space-x-2">
               <Search className="w-4 h-4 text-gray-500" />
-              <span>Search products, orders, customers...</span>
+              <span>Search live products, orders, requests...</span>
             </div>
             <kbd className="bg-gray-900 border border-gray-800 px-2 py-0.5 text-[10px] text-gray-400 rounded">Ctrl K</kbd>
           </button>
@@ -265,7 +275,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* Global Command Bar Overlay Modal (Ctrl+K) */}
+      {/* Global Command Bar Overlay (Ctrl+K) */}
       {searchOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center pt-20">
           <div className="bg-gray-900 border border-gray-800 w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden">
@@ -274,14 +284,14 @@ export default function App() {
               <input
                 type="text"
                 autoFocus
-                placeholder="Search orders, products, requests..."
+                placeholder="Search live database records..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 className="w-full bg-transparent text-white placeholder-gray-500 focus:outline-none text-base"
               />
             </div>
             <div className="p-4 text-xs text-gray-400 flex justify-between">
-              <span>Type to search across live database facts</span>
+              <span>Type to search across database</span>
               <span>Press ESC to close</span>
             </div>
           </div>
@@ -423,10 +433,10 @@ export default function App() {
       <nav className="bg-gray-900/60 border-b border-gray-800 px-6 flex space-x-2">
         {[
           { id: 'dashboard', label: "Tonight's Summary", icon: TrendingUp },
-          { id: 'chats', label: "Live Chats & Handoff", icon: MessageSquare, badge: conversations.filter(c => c.requires_human_review).length },
-          { id: 'orders', label: "Order Fulfillment Center", icon: ShoppingBag, badge: orders.length },
-          { id: 'products', label: "Products Admin Window", icon: Package, badge: products.length },
-          { id: 'requests', label: "Variant Requests Analytics", icon: AlertCircle, badge: nightlyReport.top_requested_variants.length },
+          { id: 'chats', label: "Live Chats & Handoff", icon: MessageSquare, badge: conversations.filter(c => c.requires_human_review).length || null },
+          { id: 'orders', label: "Order Fulfillment Center", icon: ShoppingBag, badge: orders.length || null },
+          { id: 'products', label: "Products Admin Window", icon: Package, badge: products.length || null },
+          { id: 'requests', label: "Variant Requests Analytics", icon: AlertCircle, badge: nightlyReport.top_requested_variants.length || null },
         ].map(tab => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -454,12 +464,61 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 p-6 max-w-7xl w-full mx-auto">
+        {/* FIRST-TIME USER SETUP GUIDE BANNER (Appears when 0 products exist) */}
+        {isFirstTimeUser && (
+          <div className="bg-gradient-to-r from-pink-950/60 via-gray-900 to-indigo-950/60 border border-pink-500/30 rounded-2xl p-6 mb-8 shadow-2xl relative overflow-hidden">
+            <div className="flex items-start space-x-4">
+              <div className="bg-pink-600 p-3 rounded-xl text-white">
+                <Sparkles className="w-6 h-6 animate-pulse" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-white flex items-center space-x-2">
+                  <span>Welcome to Your Live Instagram AI Sales Assistant!</span>
+                </h3>
+                <p className="text-sm text-gray-300 mt-1 max-w-3xl">
+                  Your automation engine is live and connected. Follow these 3 simple steps to get started:
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5">
+                  <div className="bg-gray-950/70 p-4 rounded-xl border border-gray-800">
+                    <span className="text-xs font-bold text-pink-400 uppercase tracking-wider">Step 1</span>
+                    <h4 className="font-semibold text-white mt-1">Add Your Products</h4>
+                    <p className="text-xs text-gray-400 mt-1">Click the button below to upload your selling prices, available colors, sizes, & Meesho links.</p>
+                  </div>
+
+                  <div className="bg-gray-950/70 p-4 rounded-xl border border-gray-800">
+                    <span className="text-xs font-bold text-pink-400 uppercase tracking-wider">Step 2</span>
+                    <h4 className="font-semibold text-white mt-1">Post on Instagram</h4>
+                    <p className="text-xs text-gray-400 mt-1">Post your items as reels or photos on your connected Instagram page.</p>
+                  </div>
+
+                  <div className="bg-gray-950/70 p-4 rounded-xl border border-gray-800">
+                    <span className="text-xs font-bold text-pink-400 uppercase tracking-wider">Step 3</span>
+                    <h4 className="font-semibold text-white mt-1">Automated Sales</h4>
+                    <p className="text-xs text-gray-400 mt-1">When users comment, your bot auto-replies, sends DMs with product details, collects addresses, and logs orders here!</p>
+                  </div>
+                </div>
+
+                <div className="mt-5">
+                  <button
+                    onClick={() => setShowAddProductModal(true)}
+                    className="px-6 py-2.5 bg-pink-600 hover:bg-pink-500 text-white font-bold text-sm rounded-xl flex items-center space-x-2 transition shadow-lg"
+                  >
+                    <span>+ Add Your First Product Now</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* TAB 1: TONIGHT'S SUMMARY */}
         {activeTab === 'dashboard' && (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <div>
-                <h2 className="text-2xl font-bold text-white">Tonight's Business Summary</h2>
+                <h2 className="text-2xl font-bold text-white">Live Business Summary</h2>
                 <p className="text-sm text-gray-400">Strictly computed from PostgreSQL database facts</p>
               </div>
               <button
@@ -502,7 +561,7 @@ export default function App() {
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
               <h3 className="text-lg font-semibold text-white mb-4">Formatted Executive Report</h3>
               <div className="bg-gray-950 p-4 rounded-lg border border-gray-800 font-mono text-sm text-emerald-400 space-y-1">
-                <p>--- TONIGHT'S BUSINESS REPORT ---</p>
+                <p>--- LIVE BUSINESS REPORT ---</p>
                 <p>• Orders Completed: {nightlyReport.total_orders}</p>
                 <p>• Expected Revenue: ₹{nightlyReport.total_revenue}</p>
                 <p>• Expected Gross Margin: ₹{nightlyReport.expected_gross_margin}</p>
@@ -571,7 +630,6 @@ export default function App() {
             <div className="lg:col-span-2 bg-gray-900 border border-gray-800 rounded-xl flex flex-col overflow-hidden">
               {selectedConv ? (
                 <>
-                  {/* Chat Header & Human Handoff Controls */}
                   <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/80">
                     <div>
                       <h4 className="font-semibold text-white">Customer #{selectedConv.customer_id.slice(-6)}</h4>
@@ -599,7 +657,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Messages Area */}
                   <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-gray-950/50">
                     {selectedConv.messages.map(msg => {
                       const isCustomer = msg.sender_type === 'CUSTOMER';
@@ -631,7 +688,6 @@ export default function App() {
                     })}
                   </div>
 
-                  {/* Manual Reply Bar */}
                   <div className="p-3 border-t border-gray-800 bg-gray-900 flex items-center space-x-2">
                     <input
                       type="text"
@@ -681,7 +737,6 @@ export default function App() {
               <div className="space-y-6">
                 {orders.map(o => (
                   <div key={o.order_id} className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-6">
-                    {/* Fulfillment Card Header */}
                     <div className="flex justify-between items-start border-b border-gray-800 pb-4">
                       <div>
                         <div className="flex items-center space-x-3">
@@ -694,7 +749,6 @@ export default function App() {
                         <p className="text-xs text-gray-400 mt-1">Confirmed on {o.created_at}</p>
                       </div>
 
-                      {/* Fast External Action Buttons */}
                       <div className="flex items-center space-x-3">
                         <a
                           href="https://meesho.com"
@@ -708,9 +762,7 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* Fulfillment Card Body Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      {/* Item & Financials */}
                       <div className="bg-gray-950 p-4 rounded-xl border border-gray-850 space-y-3">
                         <h4 className="text-xs font-semibold uppercase text-gray-400 tracking-wider">Product & Financials</h4>
                         {o.items.map(item => (
@@ -727,7 +779,6 @@ export default function App() {
                         ))}
                       </div>
 
-                      {/* Delivery Address & Customer Details */}
                       <div className="bg-gray-950 p-4 rounded-xl border border-gray-850 space-y-3">
                         <h4 className="text-xs font-semibold uppercase text-gray-400 tracking-wider">Delivery Information</h4>
                         <div className="space-y-1.5 text-sm">
@@ -737,7 +788,6 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* One-Click Copy Helpers */}
                       <div className="bg-gray-950 p-4 rounded-xl border border-gray-850 flex flex-col justify-between">
                         <h4 className="text-xs font-semibold uppercase text-gray-400 tracking-wider">One-Click Copy Helpers</h4>
                         <div className="space-y-2 my-auto">
@@ -772,7 +822,7 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 4: PRODUCTS & PRICING ADMIN WINDOW */}
+        {/* TAB 4: PRODUCTS ADMIN WINDOW */}
         {activeTab === 'products' && (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
